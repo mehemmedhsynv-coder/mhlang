@@ -1,0 +1,81 @@
+{
+  "name": "mhlang",
+  "version": "0.1.0",
+  "description": "Interactive CLI that scaffolds a type-safe i18n system for React and Next.js projects, plus a lightweight runtime (I18nProvider, useTranslation) to power it.",
+  "keywords": [
+    "i18n",
+    "internationalization",
+    "localization",
+    "react",
+    "nextjs",
+    "cli",
+    "typescript"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "bin": {
+    "i18n": "./dist/cli/index.js"
+  },
+  "main": "./dist/runtime/index.cjs",
+  "module": "./dist/runtime/index.js",
+  "types": "./dist/runtime/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js",
+      "require": "./dist/runtime/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cli": "tsx src/cli/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "cac": "^7.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "jsdom": "^30.0.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.11"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mehemmed/mhlang.git"
+  },
+  "author": "Mehemmed Huseynov",
+  "packageManager": "npm@11.16.0",
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true
+  }
+}
