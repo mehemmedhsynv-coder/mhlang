@@ -1,6 +1,6 @@
 {
   "name": "mhlang",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Interactive CLI that scaffolds a type-safe i18n system for React and Next.js projects, plus a lightweight runtime (I18nProvider, useTranslation) to power it.",
   "keywords": [
     "i18n",
