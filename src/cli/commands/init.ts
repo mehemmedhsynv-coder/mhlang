@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { runInitPrompts } from "../prompts/run.js";
-import { buildFilePlan, findExistingFiles, writeFiles } from "../generators/index.js";
+import { buildFilePlan, findExistingFiles, writeFiles, LOCALE_LAYOUT_LABEL } from "../generators/index.js";
 import { hasDependency, installDependency } from "../utils/dependencies.js";
 import { readPackageVersion } from "../utils/version.js";
 import { staleRoutingFilePath } from "../utils/routingFile.js";
@@ -117,6 +117,26 @@ export async function init(): Promise<void> {
   spinner.start("Creating i18n setup");
   const written = await writeFiles(targetDir, plan);
   spinner.stop(`Created ${written.length} files in ${answers.targetPath}`);
+
+  if (answers.urlRouting) {
+    const localeLayout = plan.find((f) => f.relativePath === LOCALE_LAYOUT_LABEL);
+    if (localeLayout) {
+      p.log.info(
+        pc.cyan(
+          `Generated ${LOCALE_LAYOUT_LABEL}. Move your existing routes (e.g. app/page.tsx) under ` +
+            `the [locale] segment so they pick up the locale-aware provider — e.g. app/page.tsx -> ${LOCALE_LAYOUT_LABEL.replace("/layout.tsx", "/page.tsx")}.`
+        )
+      );
+    } else {
+      p.log.warn(
+        pc.yellow(
+          "Could not find an app/ or src/app/ directory, so app/[locale]/layout.tsx wasn't generated. " +
+            "Create it by hand: read the [locale] route param, validate it against `locales` from config.ts, " +
+            "and wrap children in <I18nProvider locale={locale}> from provider.tsx."
+        )
+      );
+    }
+  }
 
   if (!hasDependency(cwd, PACKAGE_NAME)) {
     const installSpinner = p.spinner();

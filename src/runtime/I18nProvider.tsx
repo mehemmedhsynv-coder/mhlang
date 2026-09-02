@@ -26,6 +26,13 @@ export interface I18nProviderProps<Locale extends string = string> {
   persist?: boolean;
   /** Custom `localStorage` key used when `persist` is enabled. */
   storageKey?: string;
+  /**
+   * Overrides `config.defaultLocale` for the first render — e.g. the locale resolved from a
+   * `[locale]` URL segment. When set, this is authoritative: it takes priority over any
+   * persisted `localStorage` value (which is instead kept in sync with it) rather than being
+   * overridden by one, so the rendered locale always matches the URL.
+   */
+  initialLocale?: Locale;
   children: ReactNode;
 }
 
@@ -42,11 +49,17 @@ function isDev(): boolean {
  * effect after mount, once the client is guaranteed to be interactive.
  */
 export function I18nProvider<Locale extends string = string>(props: I18nProviderProps<Locale>) {
-  const { config, messages, persist = false, storageKey = DEFAULT_STORAGE_KEY, children } = props;
-  const [locale, setLocaleState] = useState<Locale>(config.defaultLocale);
+  const { config, messages, persist = false, storageKey = DEFAULT_STORAGE_KEY, initialLocale, children } = props;
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? config.defaultLocale);
 
   useEffect(() => {
     if (!persist) return;
+    if (initialLocale !== undefined) {
+      // The URL (or other external source) is authoritative — keep localStorage in sync with
+      // it instead of letting a possibly-stale stored value override the current render.
+      setStoredLocale(initialLocale, storageKey);
+      return;
+    }
     const stored = getStoredLocale(storageKey);
     if (stored && (config.locales as readonly string[]).includes(stored)) {
       setLocaleState(stored as Locale);

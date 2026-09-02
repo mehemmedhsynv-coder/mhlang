@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildFilePlan } from "../../src/cli/generators/plan.js";
 import type { InitAnswers } from "../../src/cli/types.js";
 
@@ -199,5 +199,80 @@ describe("buildFilePlan — Next.js-only files", () => {
     } finally {
       await rm(projectDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("buildFilePlan — provider.tsx / hooks/useTranslation.ts with urlRouting", () => {
+  it("gives provider.tsx a `locale` prop wired to initialLocale when urlRouting is on", () => {
+    const plan = buildFilePlan(makeAnswers({ urlRouting: true }), "/repo");
+    const provider = plan.find((f) => f.relativePath === "provider.tsx")!;
+    expect(provider.content).toContain("locale: Locale;");
+    expect(provider.content).toContain("initialLocale={locale}");
+    expect(provider.content).not.toContain("export interface I18nProviderProps {\n  children: ReactNode;\n}");
+  });
+
+  it("does not add a locale prop to provider.tsx when urlRouting is off", () => {
+    const plan = buildFilePlan(makeAnswers({ urlRouting: false }), "/repo");
+    const provider = plan.find((f) => f.relativePath === "provider.tsx")!;
+    expect(provider.content).not.toContain("initialLocale");
+  });
+
+  it("wraps setLocale with router navigation in the hook when urlRouting is on", () => {
+    const plan = buildFilePlan(makeAnswers({ urlRouting: true }), "/repo");
+    const hook = plan.find((f) => f.relativePath === "hooks/useTranslation.ts")!;
+    expect(hook.content).toContain('from "next/navigation"');
+    expect(hook.content).toContain("router.push(segments.join");
+  });
+
+  it("keeps the hook a plain re-export when urlRouting is off", () => {
+    const plan = buildFilePlan(makeAnswers({ urlRouting: false }), "/repo");
+    const hook = plan.find((f) => f.relativePath === "hooks/useTranslation.ts")!;
+    expect(hook.content).not.toContain("next/navigation");
+    expect(hook.content).toContain("useBaseTranslation<Locale, MessageKeys>()");
+  });
+});
+
+describe("buildFilePlan — app/[locale]/layout.tsx", () => {
+  let projectDir: string;
+
+  beforeEach(async () => {
+    projectDir = await mkdtemp(path.join(tmpdir(), "mhlang-layout-"));
+  });
+
+  afterEach(async () => {
+    await rm(projectDir, { recursive: true, force: true });
+  });
+
+  it("generates the layout with correct relative imports when app/ exists", async () => {
+    await mkdir(path.join(projectDir, "app"), { recursive: true });
+
+    const plan = buildFilePlan(makeAnswers({ urlRouting: true }), projectDir);
+    const layout = plan.find((f) => f.relativePath === "app/[locale]/layout.tsx")!;
+    expect(layout).toBeDefined();
+    expect(layout.absolutePath).toBe(path.join(projectDir, "app", "[locale]", "layout.tsx"));
+    expect(layout.content).toContain('from "../../src/i18n/provider"');
+    expect(layout.content).toContain('from "../../src/i18n/config"');
+    expect(layout.content).toContain("export function generateStaticParams");
+    expect(layout.content).toContain("notFound()");
+  });
+
+  it("generates the layout under src/app/ when that's the detected App Router directory", async () => {
+    await mkdir(path.join(projectDir, "src", "app"), { recursive: true });
+
+    const plan = buildFilePlan(makeAnswers({ urlRouting: true }), projectDir);
+    const layout = plan.find((f) => f.relativePath === "app/[locale]/layout.tsx")!;
+    expect(layout.absolutePath).toBe(path.join(projectDir, "src", "app", "[locale]", "layout.tsx"));
+    expect(layout.content).toContain('from "../../i18n/provider"');
+  });
+
+  it("skips the layout entirely when no app/ or src/app/ directory is found", () => {
+    const plan = buildFilePlan(makeAnswers({ urlRouting: true }), projectDir);
+    expect(plan.find((f) => f.relativePath === "app/[locale]/layout.tsx")).toBeUndefined();
+  });
+
+  it("skips the layout when urlRouting is off, even if app/ exists", async () => {
+    await mkdir(path.join(projectDir, "app"), { recursive: true });
+    const plan = buildFilePlan(makeAnswers({ urlRouting: false }), projectDir);
+    expect(plan.find((f) => f.relativePath === "app/[locale]/layout.tsx")).toBeUndefined();
   });
 });

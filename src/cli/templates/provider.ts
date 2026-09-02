@@ -1,13 +1,42 @@
 import type { InitAnswers } from "../types.js";
 import { toIdentifier } from "./shared.js";
 
-export function renderProviderTsx(answers: Pick<InitAnswers, "locales" | "persist">): string {
+export function renderProviderTsx(answers: Pick<InitAnswers, "locales" | "persist" | "urlRouting">): string {
   const imports = answers.locales
     .map((locale) => `import ${toIdentifier(locale)} from "./messages/${locale}.json";`)
     .join("\n");
   const messagesEntries = answers.locales
     .map((locale) => `  ${JSON.stringify(locale)}: ${toIdentifier(locale)},`)
     .join("\n");
+
+  if (answers.urlRouting) {
+    return `"use client";
+
+import type { ReactNode } from "react";
+import { I18nProvider as BaseI18nProvider } from "mhlang";
+import { i18nConfig } from "./config";
+import type { Locale } from "./config";
+${imports}
+
+const messages = {
+${messagesEntries}
+};
+
+export interface I18nProviderProps {
+  children: ReactNode;
+  /** The active locale, resolved from the \`[locale]\` URL segment by \`app/[locale]/layout.tsx\`. */
+  locale: Locale;
+}
+
+export function I18nProvider({ children, locale }: I18nProviderProps) {
+  return (
+    <BaseI18nProvider config={i18nConfig} messages={messages} persist={${answers.persist}} initialLocale={locale}>
+      {children}
+    </BaseI18nProvider>
+  );
+}
+`;
+  }
 
   return `"use client";
 

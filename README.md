@@ -307,12 +307,31 @@ forwards the resolved locale to `request.ts` via the `x-mhlang-locale` header so
 never has to re-parse the URL. Without URL routing, `request.ts` still works — it
 just relies on the cookie and `Accept-Language` header instead of the path.
 
-Next.js 16 renamed this file (and its exported function) from `middleware`/`middleware.ts`
-to `proxy`/`proxy.ts`. `mhlang` detects the installed Next.js version (via
-`node_modules/next/package.json`) and generates the matching one automatically — Next.js
-16+ (or no Next.js installed yet) gets `proxy.ts`, older versions get `middleware.ts`. If
-your project is upgraded to Next.js 16 later and you already have a `middleware.ts` from an
-older `init`, running `npx mhlang init` again (or `add-language`/`remove-language`) detects
+**With URL routing on, `mhlang` also generates `app/[locale]/layout.tsx`** (or
+`src/app/[locale]/layout.tsx`, whichever App Router directory it finds) — it validates the
+`[locale]` segment (404s on an unknown one via `notFound()`), declares
+`generateStaticParams()`, and wraps `children` in the generated `I18nProvider` with that
+locale as the starting state. `provider.tsx` picks up a `locale` prop for this (passed
+through as `initialLocale`, which — unlike the persisted `localStorage` value — is
+authoritative: it's what makes the server-rendered locale and the URL always agree), and
+`useTranslation()`'s `setLocale` is wrapped to also call `router.push()`, swapping the
+`[locale]` segment in the current path — so switching languages in the UI updates the URL
+too, which matters if e.g. your backend requests key off the locale in the URL.
+
+**This only wires up the layout, not your existing routes** — `mhlang` doesn't move
+`app/page.tsx` (or any other route) for you, since it doesn't know your app's structure.
+After `init`, move your existing pages under `app/[locale]/` by hand (e.g. `app/page.tsx`
+→ `app/[locale]/page.tsx`); if no `app/`/`src/app/` directory exists yet, the CLI skips the
+layout and prints instructions for wiring it up once you have one. If it can't find one, or
+you'd rather do this by hand from the start, see [Direct runtime usage](#direct-runtime-usage-without-the-cli) below.
+
+Next.js 16 renamed the routing file (and its exported function) from
+`middleware`/`middleware.ts` to `proxy`/`proxy.ts`. `mhlang` detects the installed Next.js
+version (via `node_modules/next/package.json`) and generates the matching one
+automatically — Next.js 16+ (or no Next.js installed yet) gets `proxy.ts`, older versions
+get `middleware.ts`. If your project is upgraded to Next.js 16 later and you already have a
+`middleware.ts` from an older `init`, running `npx mhlang init` again (or
+`add-language`/`remove-language`) detects
 the leftover and offers to replace it with `proxy.ts` — a stale `middleware.ts` is otherwise
 silently ignored by Next.js rather than erroring, which can quietly disable auth/redirect logic.
 

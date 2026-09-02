@@ -1,4 +1,4 @@
-export { buildFilePlan } from "./plan.js";
+export { buildFilePlan, LOCALE_LAYOUT_LABEL } from "./plan.js";
 export type { PlannedFile } from "./plan.js";
 export { findExistingFiles, writeFiles } from "./files.js";
 export type { ConflictCheckResult } from "./files.js";

@@ -150,4 +150,37 @@ describe("I18nProvider + useTranslation", () => {
       expect(screen.getByTestId("locale").textContent).toBe("az");
     });
   });
+
+  describe("initialLocale (URL-driven, e.g. app/[locale]/layout.tsx)", () => {
+    it("renders initialLocale instead of config.defaultLocale on first render", () => {
+      render(
+        <I18nProvider config={config} messages={messages} initialLocale="ru">
+          <Consumer />
+        </I18nProvider>
+      );
+      expect(screen.getByTestId("locale").textContent).toBe("ru");
+      expect(screen.getByTestId("hello").textContent).toBe("Привет");
+    });
+
+    it("takes priority over a conflicting persisted locale instead of being overridden by it", async () => {
+      window.localStorage.setItem("mhlang-locale", "en");
+      render(
+        <I18nProvider config={config} messages={messages} persist={true} initialLocale="ru">
+          <Consumer />
+        </I18nProvider>
+      );
+      // Give the mount effect a tick to run; it must NOT pull "en" back in from storage.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(screen.getByTestId("locale").textContent).toBe("ru");
+    });
+
+    it("keeps localStorage in sync with initialLocale when persist is on", async () => {
+      render(
+        <I18nProvider config={config} messages={messages} persist={true} initialLocale="ru">
+          <Consumer />
+        </I18nProvider>
+      );
+      await waitFor(() => expect(window.localStorage.getItem("mhlang-locale")).toBe("ru"));
+    });
+  });
 });
