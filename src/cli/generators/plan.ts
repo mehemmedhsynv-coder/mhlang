@@ -18,7 +18,7 @@ export function buildFilePlan(answers: InitAnswers): PlannedFile[] {
     { relativePath: "config.ts", content: renderConfigTs(answers) },
     { relativePath: "index.ts", content: renderIndexTs() },
     { relativePath: "provider.tsx", content: renderProviderTsx(answers) },
-    { relativePath: "hooks/useTranslation.ts", content: renderHookTs() },
+    { relativePath: "hooks/useTranslation.ts", content: renderHookTs(answers) },
     { relativePath: "utils/translation.ts", content: renderUtilsTs(answers) },
   ];
 

@@ -9,4 +9,4 @@ export { containsICU, formatICU } from "./icu.js";
 
 export { getStoredLocale, setStoredLocale, DEFAULT_STORAGE_KEY } from "./storage.js";
 
-export type { Messages, I18nConfig, TranslateParams, Translator, UseTranslationResult } from "./types.js";
+export type { Messages, I18nConfig, TranslateParams, Translator, UseTranslationResult, NestedKeyOf } from "./types.js";

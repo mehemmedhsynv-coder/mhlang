@@ -12,10 +12,13 @@ import type { UseTranslationResult } from "./types.js";
  * t("common.hello");
  * setLocale("en");
  */
-export function useTranslation<Locale extends string = string>(): UseTranslationResult<Locale> {
+export function useTranslation<Locale extends string = string, Keys extends string = string>(): UseTranslationResult<
+  Locale,
+  Keys
+> {
   const ctx = useContext(I18nContext);
   if (!ctx) {
     throw new Error("[mhlang] useTranslation() must be used within an <I18nProvider>.");
   }
-  return ctx as unknown as UseTranslationResult<Locale>;
+  return ctx as unknown as UseTranslationResult<Locale, Keys>;
 }

@@ -112,17 +112,21 @@ describe("buildFilePlan — generated code wiring", () => {
     expect(provider.content).toContain('"pt-br": pt_br');
   });
 
-  it("hooks/useTranslation.ts re-exports the base hook bound to the local Locale type", () => {
-    const plan = buildFilePlan(makeAnswers());
+  it("hooks/useTranslation.ts re-exports the base hook bound to the local Locale and message key types", () => {
+    const plan = buildFilePlan(makeAnswers({ defaultLocale: "az" }));
     const hook = plan.find((f) => f.relativePath === "hooks/useTranslation.ts")!;
     expect(hook.content).toContain('from "mhlang"');
-    expect(hook.content).toContain("useBaseTranslation<Locale>()");
+    expect(hook.content).toContain('import az from "../messages/az.json"');
+    expect(hook.content).toContain("type MessageKeys = NestedKeyOf<typeof az>");
+    expect(hook.content).toContain("useBaseTranslation<Locale, MessageKeys>()");
   });
 
-  it("utils/translation.ts exposes a framework-agnostic getTranslator", () => {
-    const plan = buildFilePlan(makeAnswers());
+  it("utils/translation.ts exposes a type-safe, framework-agnostic getTranslator", () => {
+    const plan = buildFilePlan(makeAnswers({ defaultLocale: "en" }));
     const utils = plan.find((f) => f.relativePath === "utils/translation.ts")!;
     expect(utils.content).toContain("export function getTranslator");
-    expect(utils.content).toContain("createTranslator");
+    expect(utils.content).toContain('import en from "../messages/en.json"');
+    expect(utils.content).toContain("type MessageKeys = NestedKeyOf<typeof en>");
+    expect(utils.content).toContain("createTranslator<MessageKeys>(messages[locale], { locale })");
   });
 });

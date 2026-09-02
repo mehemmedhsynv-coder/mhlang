@@ -40,7 +40,10 @@ export function resolveKey(messages: Messages, key: string): unknown {
  * Creates a standalone `t()` translator bound to a single locale's messages tree.
  * Framework-agnostic: usable outside of React (e.g. in server-side code).
  */
-export function createTranslator(messages: Messages, options?: { locale?: string }): Translator {
+export function createTranslator<Keys extends string = string>(
+  messages: Messages,
+  options?: { locale?: string }
+): Translator<Keys> {
   return function t(key: string, params?: TranslateParams): string {
     const resolved = resolveKey(messages, key);
     if (typeof resolved !== "string") {
