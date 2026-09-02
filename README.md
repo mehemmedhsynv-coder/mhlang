@@ -57,6 +57,10 @@ npm install mhlang
 │  ● Yes
 │  ○ No
 │
+◇  Enable locale-based URL routing? (e.g. /az/..., /en/...)
+│  ● No
+│  ○ Yes
+│
 ◇  Ready to create i18n setup. Continue?
 │  ● Yes
 │  ○ No
@@ -66,6 +70,10 @@ npm install mhlang
 
 Picking **Custom...** in the language list asks for a code (e.g. `ka`) and lets you
 add more than one; custom codes are validated and merged with the predefined ones.
+
+The "Enable locale-based URL routing?" question only appears when you picked
+**Next.js** — React setups skip straight to "Ready to create i18n setup?". See
+[URL-prefixed routing](#url-prefixed-routing-nextjs-only) below for what it generates.
 
 If the target directory already has some of these files, the CLI stops and asks
 before touching anything:
@@ -84,14 +92,16 @@ Choosing **No** exits without changing a single file.
 
 ### What gets generated
 
-For `Next.js` / `src/i18n` / locales `az, en, ru`:
+For `Next.js` / `src/i18n` / locales `az, en, ru` (with URL routing enabled):
 
 ```text
+middleware.ts
 src/
 └── i18n/
     ├── config.ts
     ├── index.ts
     ├── provider.tsx
+    ├── request.ts
     ├── hooks/
     │   └── useTranslation.ts
     ├── utils/
@@ -101,6 +111,12 @@ src/
         ├── en.json
         └── ru.json
 ```
+
+`request.ts` and the RSC-only `getTranslations()` export are Next.js-only —
+picking `React` skips both, along with `middleware.ts`. `middleware.ts` itself
+is only generated when you answer **Yes** to the URL-routing question, and it's
+the one file placed at your project root instead of inside the i18n directory
+(Next.js requires it there).
 
 `config.ts` reflects exactly what you picked:
 
@@ -188,6 +204,58 @@ t("common.helloUser", { name: "Mehemmed" }); // "Salam, Mehemmed!"
 A key that doesn't resolve to a string returns the key itself and logs a
 `console.warn` in development (silent in production).
 
+### Plurals, numbers & dates (ICU MessageFormat)
+
+Messages containing `plural`, `select`, `number`, or `date` argument syntax are
+resolved via native `Intl.PluralRules` / `Intl.NumberFormat` / `Intl.DateTimeFormat`
+— everything else keeps working exactly as before (`{{mustache}}` interpolation and
+ICU can be mixed in the same message):
+
+```json
+{
+  "cart": {
+    "items": "{count, plural, =0 {Your cart is empty} one {# item} other {# items}}"
+  },
+  "price": "Total: {amount, number}",
+  "due": "Due {date, date}"
+}
+```
+
+```tsx
+t("cart.items", { count: 0 }); // "Your cart is empty"
+t("cart.items", { count: 1 }); // "1 item"
+t("cart.items", { count: 5 }); // "5 items"
+t("price", { amount: 1234.5 }); // "Total: 1,234.5" (formatted for the active locale)
+```
+
+This is intentionally a **minimal** subset of the ICU spec: `plural` supports exact
+`=N` branches plus the standard CLDR categories (`one`/`few`/`many`/`other`/...) with
+`#` substitution, `select` supports exact-match branches with a required `other`
+fallback, and `number`/`date` use each `Intl` formatter's default formatting — there's
+no `offset:`, no skeleton/style strings, and no apostrophe-escaping. Reach for a
+dedicated ICU library if you need the full spec.
+
+### Type-safe translation keys
+
+`useTranslation()` and `getTranslator()` are generic over the **default locale's**
+message keys, computed live from its imported JSON — so this is a compile-time error:
+
+```tsx
+t("auth.login.titel"); // Argument of type '"auth.login.titel"' is not assignable to type 'MessageKeys'.
+```
+
+and this autocompletes in your editor:
+
+```tsx
+t("auth.login.title"); // ✓
+```
+
+Because the key type is derived from `typeof <defaultLocaleMessages>` rather than a
+generated snapshot, editing `messages/<defaultLocale>.json` updates the allowed keys
+immediately on save — there's no `generate`/`sync` step to remember. This does mean an
+empty `messages/<defaultLocale>.json` (e.g. `includeExamples: false`) has no valid keys
+yet, by design — add your first key and the type follows.
+
 ### Persisting the selected locale
 
 If you answered **Yes** to "Use localStorage for language persistence?", the
@@ -206,6 +274,36 @@ import { getTranslator } from "@/i18n";
 const t = getTranslator("en");
 t("common.hello"); // "Hello"
 ```
+
+### Server Components: `await getTranslations()` (Next.js only)
+
+Next.js scaffolds also get an async, request-aware translator — no locale to pass
+by hand, no prop-drilling:
+
+```tsx
+import { getTranslations } from "@/i18n";
+
+export default async function Page() {
+  const t = await getTranslations();
+  return <h1>{t("common.hello")}</h1>;
+}
+```
+
+It's backed by `request.ts` (`getRequestLocale()`), which resolves the active locale
+per request — checking, in order, the `x-mhlang-locale` header (set by `middleware.ts`
+when URL routing is on), the `mhlang-locale` cookie, the `Accept-Language` header, then
+`defaultLocale` — and is memoized per request via React's `cache()`, so calling
+`getTranslations()` from multiple components in the same request tree is free.
+
+### URL-prefixed routing (Next.js only)
+
+Answering **Yes** to "Enable locale-based URL routing?" during `init` additionally generates
+a project-root `middleware.ts`: it redirects any URL missing a known locale prefix
+(e.g. `/about` → `/az/about`, resolved from the `mhlang-locale` cookie, then
+`Accept-Language`, then `defaultLocale`) and, once a request already has a prefix,
+forwards the resolved locale to `request.ts` via the `x-mhlang-locale` header so it
+never has to re-parse the URL. Without URL routing, `request.ts` still works — it
+just relies on the cookie and `Accept-Language` header instead of the path.
 
 ## Direct runtime usage (without the CLI)
 
@@ -240,14 +338,34 @@ export function Providers({ children }: { children: React.ReactNode }) {
 ## CLI reference
 
 ```bash
-npx mhlang init       # interactive setup (the only thing you need for v1)
+npx mhlang init                    # interactive setup
+npx mhlang add-language <code>     # add a locale, cloned from the default locale's keys (blank values)
+npx mhlang remove-language <code>  # remove a locale (refuses to remove the default locale)
+npx mhlang check                   # report keys missing/untranslated in any locale; exits 1 if any (CI-friendly)
+npx mhlang missing [locale]        # alias for `check`, optionally scoped to one locale
 npx mhlang --help
 npx mhlang --version
 ```
 
-`add-language`, `remove-language`, `check`, and `missing` are on the roadmap —
-the CLI is structured (`commands/`, `prompts/`, `generators/`, `templates/`) so
-they can be added as new `commands/*.ts` files without touching `init`.
+`add-language`/`remove-language`/`check`/`missing` auto-detect an existing `init`
+scaffold (`src/i18n` or `i18n`) — pass `--path <dir>` to point at a different one.
+
+```bash
+npx mhlang add-language de
+# Added "de" (cloned from "az" with blank values).
+# Fill in messages/de.json, then run `npx mhlang check`.
+
+npx mhlang check
+# Missing keys relative to "az":
+#
+#   de
+#     • common.hello
+#     • common.welcome
+```
+
+A key counts as missing if it's absent **or** still the blank `""` placeholder
+`add-language` writes — so `check` actually catches untranslated entries, not just
+structurally-missing ones.
 
 ## Development
 

@@ -126,7 +126,7 @@ export async function runInitPrompts(): Promise<InitAnswers | null> {
       projectType === "nextjs"
         ? check(
             await p.confirm({
-              message: "Locale-based URL routing istəyirsiniz? (e.g. /az/..., /en/...)",
+              message: "Enable locale-based URL routing? (e.g. /az/..., /en/...)",
               initialValue: false,
             })
           )
