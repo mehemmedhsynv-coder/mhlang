@@ -1,11 +1,20 @@
 import type { InitAnswers } from "../types.js";
 
+export interface RenderProxyOptions {
+  /** Next.js 16+ uses `proxy`; earlier versions use `middleware` (same body either way). */
+  functionName: "proxy" | "middleware";
+}
+
 /**
- * Renders the project-root `middleware.ts`: redirects `/foo` to `/{locale}/foo` when the
- * URL is missing a known locale prefix, and otherwise forwards the resolved locale to
- * `request.ts` via the `x-mhlang-locale` request header (so it never has to re-parse the URL).
+ * Renders the project-root routing file: redirects `/foo` to `/{locale}/foo` when the URL is
+ * missing a known locale prefix, and otherwise forwards the resolved locale to `request.ts` via
+ * the `x-mhlang-locale` request header (so it never has to re-parse the URL). The exported
+ * function is named `proxy` or `middleware` depending on the target Next.js version — see
+ * `resolveRoutingFileName` in `utils/routingFile.ts`.
  */
-export function renderMiddlewareTs(answers: Pick<InitAnswers, "targetPath">): string {
+export function renderProxyTs(answers: Pick<InitAnswers, "targetPath">, options: RenderProxyOptions): string {
+  const { functionName } = options;
+
   return `import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale } from "./${answers.targetPath}/config";
 
@@ -32,7 +41,7 @@ function resolveLocale(request: NextRequest): string {
   return defaultLocale;
 }
 
-export function middleware(request: NextRequest) {
+export function ${functionName}(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasLocalePrefix = (locales as readonly string[]).some(
     (locale) => pathname === \`/\${locale}\` || pathname.startsWith(\`/\${locale}/\`)

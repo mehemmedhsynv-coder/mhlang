@@ -1,3 +1,5 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildFilePlan } from "../../src/cli/generators/plan.js";
@@ -164,19 +166,38 @@ describe("buildFilePlan — Next.js-only files", () => {
     expect(index.content).not.toContain("getTranslations");
   });
 
-  it("only emits middleware.ts (at the project root) when urlRouting is enabled", () => {
+  it("only emits the routing file (at the project root) when urlRouting is enabled", () => {
     const withoutRouting = buildFilePlan(makeAnswers({ projectType: "nextjs", urlRouting: false }), "/repo");
+    expect(withoutRouting.find((f) => f.relativePath === "proxy.ts")).toBeUndefined();
     expect(withoutRouting.find((f) => f.relativePath === "middleware.ts")).toBeUndefined();
 
+    // No Next.js installed at "/repo" (a fake path) -> defaults to the modern proxy.ts convention.
     const withRouting = buildFilePlan(makeAnswers({ projectType: "nextjs", urlRouting: true }), "/repo");
-    const middleware = withRouting.find((f) => f.relativePath === "middleware.ts")!;
-    expect(middleware).toBeDefined();
-    expect(middleware.absolutePath).toBe(path.join("/repo", "middleware.ts"));
-    expect(middleware.content).toContain("export function middleware");
-    expect(middleware.content).toContain('from "next/server"');
+    const proxy = withRouting.find((f) => f.relativePath === "proxy.ts")!;
+    expect(proxy).toBeDefined();
+    expect(proxy.absolutePath).toBe(path.join("/repo", "proxy.ts"));
+    expect(proxy.content).toContain("export function proxy");
+    expect(proxy.content).toContain('from "next/server"');
 
-    // request.ts reads the header middleware.ts sets, only when urlRouting is on.
+    // request.ts reads the header the routing file sets, only when urlRouting is on.
     const request = withRouting.find((f) => f.relativePath === "request.ts")!;
     expect(request.content).toContain('headerStore.get("x-mhlang-locale")');
+  });
+
+  it("uses the legacy middleware.ts/middleware() convention when Next.js <16 is installed", async () => {
+    const projectDir = await mkdtemp(path.join(tmpdir(), "mhlang-next15-"));
+    try {
+      const nextPkgDir = path.join(projectDir, "node_modules", "next");
+      await mkdir(nextPkgDir, { recursive: true });
+      await writeFile(path.join(nextPkgDir, "package.json"), JSON.stringify({ version: "15.5.0" }), "utf8");
+
+      const plan = buildFilePlan(makeAnswers({ projectType: "nextjs", urlRouting: true }), projectDir);
+      const middleware = plan.find((f) => f.relativePath === "middleware.ts")!;
+      expect(middleware).toBeDefined();
+      expect(plan.find((f) => f.relativePath === "proxy.ts")).toBeUndefined();
+      expect(middleware.content).toContain("export function middleware");
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+    }
   });
 });

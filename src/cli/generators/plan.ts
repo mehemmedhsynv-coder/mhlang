@@ -7,7 +7,8 @@ import { renderHookTs } from "../templates/hook.js";
 import { renderUtilsTs } from "../templates/utils.js";
 import { renderMessagesJson } from "../templates/messages.js";
 import { renderRequestTs } from "../templates/request.js";
-import { renderMiddlewareTs } from "../templates/middleware.js";
+import { renderProxyTs } from "../templates/proxy.js";
+import { resolveRoutingFileName } from "../utils/routingFile.js";
 
 export interface PlannedFile {
   /** Path relative to the i18n target directory, using forward slashes. */
@@ -31,10 +32,11 @@ export function buildFilePlan(answers: InitAnswers, cwd: string = process.cwd())
     files.push({ relativePath: "request.ts", content: renderRequestTs(answers) });
 
     if (answers.urlRouting) {
+      const fileName = resolveRoutingFileName(cwd);
       files.push({
-        relativePath: "middleware.ts",
-        absolutePath: path.join(cwd, "middleware.ts"),
-        content: renderMiddlewareTs(answers),
+        relativePath: fileName,
+        absolutePath: path.join(cwd, fileName),
+        content: renderProxyTs(answers, { functionName: fileName === "proxy.ts" ? "proxy" : "middleware" }),
       });
     }
   }

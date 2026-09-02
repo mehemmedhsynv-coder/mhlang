@@ -5,6 +5,8 @@ import { normalizeLanguageCode } from "../data/languages.js";
 import { buildFilePlan } from "../generators/plan.js";
 import { writeFiles } from "../generators/files.js";
 import { locateProject } from "../utils/locateProject.js";
+import { staleRoutingFilePath } from "../utils/routingFile.js";
+import type { RoutingFileName } from "../utils/routingFile.js";
 import type { InitAnswers } from "../types.js";
 
 export interface RemoveLanguageOptions {
@@ -40,6 +42,15 @@ export async function removeLanguage(code: string, options: RemoveLanguageOption
   const plan = buildFilePlan(answers, cwd);
   const derivedFiles = plan.filter((file) => !file.relativePath.startsWith("messages/"));
   await writeFiles(project.targetDir, derivedFiles);
+
+  const routingFile = plan.find((file) => file.relativePath === "proxy.ts" || file.relativePath === "middleware.ts");
+  if (routingFile) {
+    const stalePath = staleRoutingFilePath(cwd, routingFile.relativePath as RoutingFileName);
+    if (stalePath) {
+      await rm(stalePath);
+      console.log(pc.dim(`Removed stale ${path.basename(stalePath)} (using ${routingFile.relativePath} instead).`));
+    }
+  }
 
   await rm(path.join(project.targetDir, "messages", `${normalized}.json`));
 

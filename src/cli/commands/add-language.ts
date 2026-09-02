@@ -1,5 +1,5 @@
 import path from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import pc from "picocolors";
 import { isValidLanguageCode, normalizeLanguageCode } from "../data/languages.js";
 import { blankMessages } from "../generators/messageKeys.js";
@@ -7,6 +7,8 @@ import type { JsonMessages } from "../generators/messageKeys.js";
 import { buildFilePlan } from "../generators/plan.js";
 import { writeFiles } from "../generators/files.js";
 import { locateProject } from "../utils/locateProject.js";
+import { staleRoutingFilePath } from "../utils/routingFile.js";
+import type { RoutingFileName } from "../utils/routingFile.js";
 import type { InitAnswers } from "../types.js";
 
 export interface AddLanguageOptions {
@@ -47,6 +49,15 @@ export async function addLanguage(code: string, options: AddLanguageOptions = {}
   const plan = buildFilePlan(answers, cwd);
   const derivedFiles = plan.filter((file) => !file.relativePath.startsWith("messages/"));
   await writeFiles(project.targetDir, derivedFiles);
+
+  const routingFile = plan.find((file) => file.relativePath === "proxy.ts" || file.relativePath === "middleware.ts");
+  if (routingFile) {
+    const stalePath = staleRoutingFilePath(cwd, routingFile.relativePath as RoutingFileName);
+    if (stalePath) {
+      await rm(stalePath);
+      console.log(pc.dim(`Removed stale ${path.basename(stalePath)} (using ${routingFile.relativePath} instead).`));
+    }
+  }
 
   const newMessagesPath = path.join(project.targetDir, "messages", `${normalized}.json`);
   await writeFile(newMessagesPath, `${JSON.stringify(blanked, null, 2)}\n`, "utf8");

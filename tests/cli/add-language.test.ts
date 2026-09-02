@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -68,6 +68,26 @@ describe("addLanguage", () => {
       await expect(addLanguage("de", { cwd: emptyDir })).rejects.toThrow(/npx mhlang init/);
     } finally {
       await rm(emptyDir, { recursive: true, force: true });
+    }
+  });
+
+  it("replaces a stale legacy middleware.ts with proxy.ts when regenerating a Next.js project", async () => {
+    const nextDir = await mkdtemp(path.join(tmpdir(), "mhlang-add-lang-next-"));
+    try {
+      const nextAnswers: InitAnswers = { ...answers, projectType: "nextjs", urlRouting: true };
+      const nextTargetDir = path.join(nextDir, "src", "i18n");
+      await writeFiles(nextTargetDir, buildFilePlan(nextAnswers, nextDir));
+      // Simulate a leftover from an older mhlang/Next.js version.
+      await writeFile(path.join(nextDir, "middleware.ts"), "export function middleware() {}\n", "utf8");
+
+      await addLanguage("de", { cwd: nextDir });
+
+      await expect(access(path.join(nextDir, "middleware.ts"))).rejects.toThrow();
+      await expect(access(path.join(nextDir, "proxy.ts"))).resolves.toBeUndefined();
+      const proxy = await readFile(path.join(nextDir, "proxy.ts"), "utf8");
+      expect(proxy).toContain("export function proxy");
+    } finally {
+      await rm(nextDir, { recursive: true, force: true });
     }
   });
 });

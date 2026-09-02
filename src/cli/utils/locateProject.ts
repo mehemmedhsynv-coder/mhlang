@@ -31,7 +31,8 @@ function parseDefaultLocale(configContent: string): string {
  * and otherwise scanning `PRESET_PATHS`. Re-derives the current setup by reading generated
  * files rather than a separate manifest: `messages/*.json` is the source of truth for the
  * locale list, `config.ts` for the default locale, `provider.tsx` for `persist`, and the
- * presence of `request.ts` / a root `middleware.ts` for `projectType` / `urlRouting`.
+ * presence of `request.ts` / a root `proxy.ts` (or legacy `middleware.ts`) for
+ * `projectType` / `urlRouting`.
  */
 export async function locateProject(cwd: string, overridePath?: string): Promise<LocatedProject> {
   const candidates = overridePath ? [overridePath] : [...PRESET_PATHS];
@@ -52,7 +53,9 @@ export async function locateProject(cwd: string, overridePath?: string): Promise
     const persist = persistMatch?.[1] === "true";
 
     const projectType: ProjectType = existsSync(path.join(targetDir, "request.ts")) ? "nextjs" : "react";
-    const urlRouting = projectType === "nextjs" && existsSync(path.join(cwd, "middleware.ts"));
+    const urlRouting =
+      projectType === "nextjs" &&
+      (existsSync(path.join(cwd, "proxy.ts")) || existsSync(path.join(cwd, "middleware.ts")));
 
     return { targetDir, targetPath: candidate, locales, defaultLocale, projectType, persist, urlRouting };
   }

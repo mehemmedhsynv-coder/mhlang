@@ -95,7 +95,7 @@ Choosing **No** exits without changing a single file.
 For `Next.js` / `src/i18n` / locales `az, en, ru` (with URL routing enabled):
 
 ```text
-middleware.ts
+proxy.ts
 src/
 └── i18n/
     ├── config.ts
@@ -113,10 +113,12 @@ src/
 ```
 
 `request.ts` and the RSC-only `getTranslations()` export are Next.js-only —
-picking `React` skips both, along with `middleware.ts`. `middleware.ts` itself
-is only generated when you answer **Yes** to the URL-routing question, and it's
-the one file placed at your project root instead of inside the i18n directory
-(Next.js requires it there).
+picking `React` skips both, along with the routing file. That routing file is
+only generated when you answer **Yes** to the URL-routing question, and it's the
+one file placed at your project root instead of inside the i18n directory
+(Next.js requires it there). It's named `proxy.ts` (Next.js 16+) or `middleware.ts`
+(older versions) depending on the Next.js version installed in your project — see
+[URL-prefixed routing](#url-prefixed-routing-nextjs-only) below.
 
 `config.ts` reflects exactly what you picked:
 
@@ -290,20 +292,29 @@ export default async function Page() {
 ```
 
 It's backed by `request.ts` (`getRequestLocale()`), which resolves the active locale
-per request — checking, in order, the `x-mhlang-locale` header (set by `middleware.ts`
-when URL routing is on), the `mhlang-locale` cookie, the `Accept-Language` header, then
-`defaultLocale` — and is memoized per request via React's `cache()`, so calling
+per request — checking, in order, the `x-mhlang-locale` header (set by the routing
+file when URL routing is on), the `mhlang-locale` cookie, the `Accept-Language`
+header, then `defaultLocale` — and is memoized per request via React's `cache()`, so calling
 `getTranslations()` from multiple components in the same request tree is free.
 
 ### URL-prefixed routing (Next.js only)
 
 Answering **Yes** to "Enable locale-based URL routing?" during `init` additionally generates
-a project-root `middleware.ts`: it redirects any URL missing a known locale prefix
+a project-root routing file: it redirects any URL missing a known locale prefix
 (e.g. `/about` → `/az/about`, resolved from the `mhlang-locale` cookie, then
 `Accept-Language`, then `defaultLocale`) and, once a request already has a prefix,
 forwards the resolved locale to `request.ts` via the `x-mhlang-locale` header so it
 never has to re-parse the URL. Without URL routing, `request.ts` still works — it
 just relies on the cookie and `Accept-Language` header instead of the path.
+
+Next.js 16 renamed this file (and its exported function) from `middleware`/`middleware.ts`
+to `proxy`/`proxy.ts`. `mhlang` detects the installed Next.js version (via
+`node_modules/next/package.json`) and generates the matching one automatically — Next.js
+16+ (or no Next.js installed yet) gets `proxy.ts`, older versions get `middleware.ts`. If
+your project is upgraded to Next.js 16 later and you already have a `middleware.ts` from an
+older `init`, running `npx mhlang init` again (or `add-language`/`remove-language`) detects
+the leftover and offers to replace it with `proxy.ts` — a stale `middleware.ts` is otherwise
+silently ignored by Next.js rather than erroring, which can quietly disable auth/redirect logic.
 
 ## Direct runtime usage (without the CLI)
 

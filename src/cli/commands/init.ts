@@ -1,10 +1,13 @@
 import path from "node:path";
+import { rm } from "node:fs/promises";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { runInitPrompts } from "../prompts/run.js";
 import { buildFilePlan, findExistingFiles, writeFiles } from "../generators/index.js";
 import { hasDependency, installDependency } from "../utils/dependencies.js";
 import { readPackageVersion } from "../utils/version.js";
+import { staleRoutingFilePath } from "../utils/routingFile.js";
+import type { RoutingFileName } from "../utils/routingFile.js";
 
 const PACKAGE_NAME = "mhlang";
 
@@ -27,7 +30,7 @@ function summaryLines(answers: {
     `Persist:  ${answers.persist ? "yes" : "no"}`,
   ];
   if (answers.projectType === "nextjs") {
-    lines.push(`Routing:  ${answers.urlRouting ? "URL-prefixed (middleware.ts)" : "cookie/header-based"}`);
+    lines.push(`Routing:  ${answers.urlRouting ? "URL-prefixed (proxy.ts / middleware.ts)" : "cookie/header-based"}`);
   }
   return lines.join("\n");
 }
@@ -40,6 +43,36 @@ export async function init(): Promise<void> {
 
   const targetDir = path.resolve(cwd, answers.targetPath);
   const plan = buildFilePlan(answers, cwd);
+
+  const routingFile = plan.find((f) => f.relativePath === "proxy.ts" || f.relativePath === "middleware.ts");
+  if (routingFile) {
+    const stalePath = staleRoutingFilePath(cwd, routingFile.relativePath as RoutingFileName);
+    if (stalePath) {
+      const staleName = path.basename(stalePath);
+      p.log.warn(
+        pc.yellow(
+          `Found ${staleName} — this project will use ${routingFile.relativePath} instead (Next.js renamed the convention in v16).`
+        )
+      );
+      const removeStale = await p.confirm({
+        message: `Delete ${staleName}?`,
+        initialValue: true,
+      });
+      if (p.isCancel(removeStale)) {
+        p.outro(pc.yellow("Setup cancelled. No files were changed."));
+        return;
+      }
+      if (removeStale) {
+        await rm(stalePath);
+      } else {
+        p.log.warn(
+          pc.yellow(
+            `Leaving ${staleName} in place — Next.js ignores it silently rather than erroring, which can quietly disable auth/redirect logic. Delete it manually when ready.`
+          )
+        );
+      }
+    }
+  }
 
   const { hasConflicts, existingFiles } = await findExistingFiles(targetDir, plan);
 
