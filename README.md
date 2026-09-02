@@ -318,12 +318,19 @@ authoritative: it's what makes the server-rendered locale and the URL always agr
 `[locale]` segment in the current path — so switching languages in the UI updates the URL
 too, which matters if e.g. your backend requests key off the locale in the URL.
 
-**This only wires up the layout, not your existing routes** — `mhlang` doesn't move
-`app/page.tsx` (or any other route) for you, since it doesn't know your app's structure.
-After `init`, move your existing pages under `app/[locale]/` by hand (e.g. `app/page.tsx`
-→ `app/[locale]/page.tsx`); if no `app/`/`src/app/` directory exists yet, the CLI skips the
-layout and prints instructions for wiring it up once you have one. If it can't find one, or
-you'd rather do this by hand from the start, see [Direct runtime usage](#direct-runtime-usage-without-the-cli) below.
+**`init` also offers to move your existing routes under `[locale]/`** so the whole app —
+not just new routes — gets locale-prefixed URLs. It lists every top-level entry in
+`app/` (route folders, route groups like `(marketing)/`, and the root `page.tsx`) and, on
+confirmation, moves each one under `[locale]/` as a unit — a directory move carries its
+full nested structure along, so `(marketing)/pricing/page.tsx` ends up at
+`[locale]/(marketing)/pricing/page.tsx`, untouched otherwise. A handful of Next.js
+conventions are **never** moved, since they only make sense at the true app root:
+`layout.tsx`, `global-error.tsx`, `api/`, `manifest.ts`/`sitemap.ts`/`robots.ts`, icon
+files, and `globals.css`. Say no to the prompt (or answer no to URL routing during `init`)
+to do this by hand instead, or run `init` again later once you have an `app/`/`src/app/`
+directory if you didn't yet — the CLI skips the layout and migration until then, with a
+printed note either way. If you'd rather do this by hand from the start, see
+[Direct runtime usage](#direct-runtime-usage-without-the-cli) below.
 
 Next.js 16 renamed the routing file (and its exported function) from
 `middleware`/`middleware.ts` to `proxy`/`proxy.ts`. `mhlang` detects the installed Next.js
