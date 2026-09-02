@@ -5,6 +5,8 @@ export { useTranslation } from "./useTranslation.js";
 
 export { createTranslator, interpolate, resolveKey } from "./translate.js";
 
+export { containsICU, formatICU } from "./icu.js";
+
 export { getStoredLocale, setStoredLocale, DEFAULT_STORAGE_KEY } from "./storage.js";
 
 export type { Messages, I18nConfig, TranslateParams, Translator, UseTranslationResult } from "./types.js";

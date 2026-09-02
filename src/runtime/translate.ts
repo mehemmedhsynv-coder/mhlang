@@ -1,4 +1,5 @@
 import type { Messages, TranslateParams, Translator } from "./types.js";
+import { containsICU, formatICU } from "./icu.js";
 
 const INTERPOLATION_PATTERN = /\{\{\s*([\w.]+)\s*\}\}/g;
 
@@ -49,6 +50,7 @@ export function createTranslator(messages: Messages, options?: { locale?: string
       }
       return key;
     }
-    return interpolate(resolved, params);
+    const formatted = containsICU(resolved) ? formatICU(resolved, params, options?.locale) : resolved;
+    return interpolate(formatted, params);
   };
 }
