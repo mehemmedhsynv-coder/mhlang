@@ -17,7 +17,7 @@
     "node": ">=18.17.0"
   },
   "bin": {
-    "i18n": "dist/cli/index.js"
+    "mhlang": "dist/cli/index.js"
   },
   "main": "./dist/runtime/index.cjs",
   "module": "./dist/runtime/index.js",

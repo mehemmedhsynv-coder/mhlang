@@ -3,6 +3,10 @@ import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { runInitPrompts } from "../prompts/run.js";
 import { buildFilePlan, findExistingFiles, writeFiles } from "../generators/index.js";
+import { hasDependency, installDependency } from "../utils/dependencies.js";
+import { readPackageVersion } from "../utils/version.js";
+
+const PACKAGE_NAME = "mhlang";
 
 function summaryLines(answers: {
   projectType: string;
@@ -67,6 +71,18 @@ export async function init(): Promise<void> {
   spinner.start("Creating i18n setup");
   const written = await writeFiles(targetDir, plan);
   spinner.stop(`Created ${written.length} files in ${answers.targetPath}`);
+
+  if (!hasDependency(cwd, PACKAGE_NAME)) {
+    const installSpinner = p.spinner();
+    installSpinner.start(`Installing ${PACKAGE_NAME}`);
+    try {
+      await installDependency(cwd, `${PACKAGE_NAME}@${readPackageVersion()}`);
+      installSpinner.stop(`Installed ${PACKAGE_NAME}`);
+    } catch {
+      installSpinner.stop(pc.yellow(`Could not install ${PACKAGE_NAME} automatically`));
+      p.log.warn(pc.yellow(`Run \`npm install ${PACKAGE_NAME}\` (or your package manager's equivalent) to finish setup.`));
+    }
+  }
 
   p.outro(pc.green("i18n setup created successfully!"));
 }

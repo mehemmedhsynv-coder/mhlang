@@ -4,23 +4,24 @@ Interactive CLI that scaffolds a type-safe i18n system for **React** and **Next.
 projects, backed by a small runtime (`I18nProvider`, `useTranslation`) that ships
 with the package.
 
-No config files to hand-write, no flags to remember — install it, run `npx i18n init`,
+No config files to hand-write, no flags to remember — run `npx mhlang init`,
 answer a few questions, and a working, typed i18n setup appears in your project.
 
 ## Install
 
 ```bash
+npx mhlang init
+```
+
+`npx` fetches and runs the CLI on the fly, so there's nothing to install upfront.
+The generated files import from the `mhlang` runtime, so add it as a dependency
+once the setup is in place:
+
+```bash
 npm install mhlang
 ```
 
-Nothing is written to your project at install time. File generation only happens
-when you explicitly run the CLI:
-
-```bash
-npx i18n init
-```
-
-## `npx i18n init`
+## `npx mhlang init`
 
 ```text
 ┌  i18n setup
@@ -231,7 +232,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 > The package itself doesn't ship a `"use client"` boundary in its build output
 > (bundlers commonly drop the directive). If you import `I18nProvider` directly
-> into a Next.js App Router server tree instead of going through `npx i18n init`,
+> into a Next.js App Router server tree instead of going through `npx mhlang init`,
 > wrap it in your own `"use client"` file as above — this is the same pattern
 > [Next.js recommends](https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns#supporting-libraries-that-need-context)
 > for any third-party component library.
@@ -239,9 +240,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 ## CLI reference
 
 ```bash
-npx i18n init       # interactive setup (the only thing you need for v1)
-npx i18n --help
-npx i18n --version
+npx mhlang init       # interactive setup (the only thing you need for v1)
+npx mhlang --help
+npx mhlang --version
 ```
 
 `add-language`, `remove-language`, `check`, and `missing` are on the roadmap —

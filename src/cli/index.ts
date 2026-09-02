@@ -1,22 +1,9 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import cac from "cac";
 import pc from "picocolors";
 import { init } from "./commands/init.js";
+import { readPackageVersion } from "./utils/version.js";
 
-function readPackageVersion(): string {
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const pkgPath = join(here, "..", "..", "package.json");
-    const raw = readFileSync(pkgPath, "utf8");
-    return (JSON.parse(raw) as { version?: string }).version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-}
-
-const cli = cac("i18n");
+const cli = cac("mhlang");
 
 cli
   .command("init", "Interactively scaffold an i18n setup for a React or Next.js project")
