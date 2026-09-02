@@ -8,6 +8,7 @@ import { hasDependency, installDependency } from "../utils/dependencies.js";
 import { readPackageVersion } from "../utils/version.js";
 import { staleRoutingFilePath } from "../utils/routingFile.js";
 import type { RoutingFileName } from "../utils/routingFile.js";
+import { findMigrationCandidates, migrateRoutesIntoLocale } from "../utils/migrateRoutes.js";
 
 const PACKAGE_NAME = "mhlang";
 
@@ -121,12 +122,48 @@ export async function init(): Promise<void> {
   if (answers.urlRouting) {
     const localeLayout = plan.find((f) => f.relativePath === LOCALE_LAYOUT_LABEL);
     if (localeLayout) {
-      p.log.info(
-        pc.cyan(
-          `Generated ${LOCALE_LAYOUT_LABEL}. Move your existing routes (e.g. app/page.tsx) under ` +
-            `the [locale] segment so they pick up the locale-aware provider — e.g. app/page.tsx -> ${LOCALE_LAYOUT_LABEL.replace("/layout.tsx", "/page.tsx")}.`
-        )
-      );
+      p.log.success(pc.green(`Generated ${LOCALE_LAYOUT_LABEL}.`));
+
+      const appDir = path.dirname(path.dirname(localeLayout.absolutePath!));
+      const appDirLabel = path.relative(cwd, appDir).split(path.sep).join("/") || ".";
+      const candidates = await findMigrationCandidates(appDir);
+
+      if (candidates.length > 0) {
+        p.log.info(
+          pc.cyan(
+            `Found existing routes in ${appDirLabel}/ that need to move under [locale]/ to pick up the locale-aware provider:`
+          )
+        );
+        p.log.message(candidates.map((c) => `  ${pc.dim("•")} ${c.name}${c.isDirectory ? "/" : ""}`).join("\n"));
+
+        const migrate = await p.confirm({
+          message: `Move ${candidates.length} item(s) into ${appDirLabel}/[locale]/?`,
+          initialValue: true,
+        });
+
+        if (p.isCancel(migrate)) {
+          p.outro(pc.yellow("Setup cancelled after writing i18n files. Routes were not moved."));
+          return;
+        }
+
+        if (migrate) {
+          const { moved, skipped } = await migrateRoutesIntoLocale(appDir, candidates);
+          if (moved.length > 0) {
+            p.log.success(pc.green(`Moved ${moved.length} item(s) into ${appDirLabel}/[locale]/.`));
+          }
+          if (skipped.length > 0) {
+            p.log.warn(
+              pc.yellow(`Skipped (already exists under [locale]/): ${skipped.join(", ")}. Resolve these by hand.`)
+            );
+          }
+        } else {
+          p.log.warn(
+            pc.yellow(
+              `Left ${appDirLabel}/ routes in place — they won't get the locale-aware provider or URL prefix until moved under [locale]/.`
+            )
+          );
+        }
+      }
     } else {
       p.log.warn(
         pc.yellow(
