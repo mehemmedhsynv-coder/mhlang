@@ -15,16 +15,21 @@ function summaryLines(answers: {
   locales: string[];
   includeExamples: boolean;
   persist: boolean;
+  urlRouting: boolean;
 }): string {
   const projectLabel = answers.projectType === "nextjs" ? "Next.js" : "React";
-  return [
+  const lines = [
     `Project:  ${projectLabel}`,
     `Path:     ${answers.targetPath}`,
     `Default:  ${answers.defaultLocale}`,
     `Locales:  ${answers.locales.join(", ")}`,
     `Examples: ${answers.includeExamples ? "yes" : "no"}`,
     `Persist:  ${answers.persist ? "yes" : "no"}`,
-  ].join("\n");
+  ];
+  if (answers.projectType === "nextjs") {
+    lines.push(`Routing:  ${answers.urlRouting ? "URL-prefixed (middleware.ts)" : "cookie/header-based"}`);
+  }
+  return lines.join("\n");
 }
 
 export async function init(): Promise<void> {
@@ -34,14 +39,22 @@ export async function init(): Promise<void> {
   if (!answers) return;
 
   const targetDir = path.resolve(cwd, answers.targetPath);
-  const plan = buildFilePlan(answers);
+  const plan = buildFilePlan(answers, cwd);
 
   const { hasConflicts, existingFiles } = await findExistingFiles(targetDir, plan);
 
   if (hasConflicts) {
     p.log.warn(pc.yellow(`i18n directory already exists (${answers.targetPath}).`));
     p.log.message(
-      existingFiles.map((file) => `  ${pc.dim("•")} ${path.posix.join(answers.targetPath, file)}`).join("\n")
+      existingFiles
+        .map((relPath) => {
+          const file = plan.find((f) => f.relativePath === relPath);
+          const display = file?.absolutePath
+            ? path.relative(cwd, file.absolutePath)
+            : path.posix.join(answers.targetPath, relPath);
+          return `  ${pc.dim("•")} ${display}`;
+        })
+        .join("\n")
     );
 
     const overwrite = await p.confirm({

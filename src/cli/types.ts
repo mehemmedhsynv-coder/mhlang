@@ -17,4 +17,6 @@ export interface InitAnswers {
   defaultLocale: string;
   includeExamples: boolean;
   persist: boolean;
+  /** Next.js-only: scaffold a `/{locale}/...` URL-prefixed routing middleware. */
+  urlRouting: boolean;
 }

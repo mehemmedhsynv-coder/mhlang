@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildFilePlan } from "../../src/cli/generators/plan.js";
 import type { InitAnswers } from "../../src/cli/types.js";
@@ -10,6 +11,7 @@ function makeAnswers(overrides: Partial<InitAnswers> = {}): InitAnswers {
     defaultLocale: "az",
     includeExamples: true,
     persist: true,
+    urlRouting: false,
     ...overrides,
   };
 }
@@ -25,6 +27,7 @@ describe("buildFilePlan — folder generation", () => {
         "provider.tsx",
         "hooks/useTranslation.ts",
         "utils/translation.ts",
+        "request.ts",
         "messages/az.json",
         "messages/en.json",
         "messages/ru.json",
@@ -128,5 +131,52 @@ describe("buildFilePlan — generated code wiring", () => {
     expect(utils.content).toContain('import en from "../messages/en.json"');
     expect(utils.content).toContain("type MessageKeys = NestedKeyOf<typeof en>");
     expect(utils.content).toContain("createTranslator<MessageKeys>(messages[locale], { locale })");
+  });
+});
+
+describe("buildFilePlan — Next.js-only files", () => {
+  it("emits request.ts and an RSC getTranslations() for projectType: nextjs", () => {
+    const plan = buildFilePlan(makeAnswers({ projectType: "nextjs" }), "/repo");
+    const request = plan.find((f) => f.relativePath === "request.ts")!;
+    expect(request.content).toContain("export async function getRequestLocale");
+    expect(request.content).toContain('from "next/headers"');
+
+    const utils = plan.find((f) => f.relativePath === "utils/translation.ts")!;
+    expect(utils.content).toContain('import { cache } from "react"');
+    expect(utils.content).toContain('import { getRequestLocale } from "../request"');
+    expect(utils.content).toContain("export async function getTranslations");
+
+    const index = plan.find((f) => f.relativePath === "index.ts")!;
+    expect(index.content).toContain('export { getTranslations } from "./utils/translation"');
+    expect(index.content).toContain('export { getRequestLocale } from "./request"');
+  });
+
+  it("omits request.ts, getTranslations, and the Next.js index exports for projectType: react", () => {
+    const plan = buildFilePlan(makeAnswers({ projectType: "react" }), "/repo");
+    expect(plan.find((f) => f.relativePath === "request.ts")).toBeUndefined();
+    expect(plan.find((f) => f.relativePath === "middleware.ts")).toBeUndefined();
+
+    const utils = plan.find((f) => f.relativePath === "utils/translation.ts")!;
+    expect(utils.content).not.toContain("getTranslations");
+    expect(utils.content).not.toContain('from "react"');
+
+    const index = plan.find((f) => f.relativePath === "index.ts")!;
+    expect(index.content).not.toContain("getTranslations");
+  });
+
+  it("only emits middleware.ts (at the project root) when urlRouting is enabled", () => {
+    const withoutRouting = buildFilePlan(makeAnswers({ projectType: "nextjs", urlRouting: false }), "/repo");
+    expect(withoutRouting.find((f) => f.relativePath === "middleware.ts")).toBeUndefined();
+
+    const withRouting = buildFilePlan(makeAnswers({ projectType: "nextjs", urlRouting: true }), "/repo");
+    const middleware = withRouting.find((f) => f.relativePath === "middleware.ts")!;
+    expect(middleware).toBeDefined();
+    expect(middleware.absolutePath).toBe(path.join("/repo", "middleware.ts"));
+    expect(middleware.content).toContain("export function middleware");
+    expect(middleware.content).toContain('from "next/server"');
+
+    // request.ts reads the header middleware.ts sets, only when urlRouting is on.
+    const request = withRouting.find((f) => f.relativePath === "request.ts")!;
+    expect(request.content).toContain('headerStore.get("x-mhlang-locale")');
   });
 });

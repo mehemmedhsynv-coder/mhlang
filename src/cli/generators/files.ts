@@ -8,8 +8,9 @@ export interface ConflictCheckResult {
   existingFiles: string[];
 }
 
-function toAbsolutePath(targetDir: string, relativePath: string): string {
-  return path.join(targetDir, ...relativePath.split("/"));
+function toAbsolutePath(targetDir: string, file: PlannedFile): string {
+  if (file.absolutePath) return file.absolutePath;
+  return path.join(targetDir, ...file.relativePath.split("/"));
 }
 
 /** Checks which of the planned files already exist on disk, without modifying anything. */
@@ -20,7 +21,7 @@ export async function findExistingFiles(
   const existingFiles: string[] = [];
   for (const file of files) {
     try {
-      await access(toAbsolutePath(targetDir, file.relativePath));
+      await access(toAbsolutePath(targetDir, file));
       existingFiles.push(file.relativePath);
     } catch {
       // File does not exist — nothing to report.
@@ -33,7 +34,7 @@ export async function findExistingFiles(
 export async function writeFiles(targetDir: string, files: readonly PlannedFile[]): Promise<string[]> {
   const written: string[] = [];
   for (const file of files) {
-    const absolutePath = toAbsolutePath(targetDir, file.relativePath);
+    const absolutePath = toAbsolutePath(targetDir, file);
     await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, file.content, "utf8");
     written.push(file.relativePath);

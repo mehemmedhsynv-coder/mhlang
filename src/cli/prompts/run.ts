@@ -122,7 +122,17 @@ export async function runInitPrompts(): Promise<InitAnswers | null> {
       })
     );
 
-    return { projectType, targetPath, locales, defaultLocale, includeExamples, persist };
+    const urlRouting =
+      projectType === "nextjs"
+        ? check(
+            await p.confirm({
+              message: "Locale-based URL routing istəyirsiniz? (e.g. /az/..., /en/...)",
+              initialValue: false,
+            })
+          )
+        : false;
+
+    return { projectType, targetPath, locales, defaultLocale, includeExamples, persist, urlRouting };
   } catch (error) {
     if (error instanceof SetupCancelledError) {
       p.cancel("Setup cancelled.");

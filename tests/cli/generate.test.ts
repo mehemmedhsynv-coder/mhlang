@@ -13,6 +13,7 @@ const answers: InitAnswers = {
   defaultLocale: "az",
   includeExamples: true,
   persist: true,
+  urlRouting: false,
 };
 
 let workDir: string;

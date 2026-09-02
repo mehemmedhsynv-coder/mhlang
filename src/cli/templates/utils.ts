@@ -1,7 +1,7 @@
 import type { InitAnswers } from "../types.js";
 import { toIdentifier } from "./shared.js";
 
-export function renderUtilsTs(answers: Pick<InitAnswers, "locales" | "defaultLocale">): string {
+export function renderUtilsTs(answers: Pick<InitAnswers, "locales" | "defaultLocale" | "projectType">): string {
   const imports = answers.locales
     .map((locale) => `import ${toIdentifier(locale)} from "../messages/${locale}.json";`)
     .join("\n");
@@ -10,9 +10,24 @@ export function renderUtilsTs(answers: Pick<InitAnswers, "locales" | "defaultLoc
     .join("\n");
   const defaultIdentifier = toIdentifier(answers.defaultLocale);
 
+  const asyncTranslator =
+    answers.projectType === "nextjs"
+      ? `
+
+const resolveTranslator = cache(async () => {
+  const locale = await getRequestLocale();
+  return createTranslator<MessageKeys>(messages[locale], { locale });
+});
+
+/** RSC-only: resolves the translator for the current request, cached per request. */
+export async function getTranslations() {
+  return resolveTranslator();
+}`
+      : "";
+
   return `import { createTranslator } from "mhlang";
 import type { NestedKeyOf } from "mhlang";
-import { i18nConfig } from "../config";
+${answers.projectType === "nextjs" ? 'import { cache } from "react";\nimport { getRequestLocale } from "../request";\n' : ""}import { i18nConfig } from "../config";
 import type { Locale } from "../config";
 ${imports}
 
@@ -28,6 +43,6 @@ type MessageKeys = NestedKeyOf<typeof ${defaultIdentifier}>;
  */
 export function getTranslator(locale: Locale = i18nConfig.defaultLocale) {
   return createTranslator<MessageKeys>(messages[locale], { locale });
-}
+}${asyncTranslator}
 `;
 }
