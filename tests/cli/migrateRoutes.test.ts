@@ -57,6 +57,44 @@ describe("findMigrationCandidates", () => {
     expect(candidates.map((c) => c.name)).toEqual(["page.tsx"]);
   });
 
+  it("excludes colocated helper directories (components/, lib/, hooks/) that contain no route files", async () => {
+    await touch("page.tsx");
+    await touch("components/Button.tsx");
+    await touch("components/forms/Input.tsx");
+    await touch("lib/utils.ts");
+    await touch("hooks/useThing.ts");
+    await touch("styles/theme.css");
+
+    const candidates = await findMigrationCandidates(appDir);
+    expect(candidates.map((c) => c.name)).toEqual(["page.tsx"]);
+  });
+
+  it("excludes a stray non-route-convention file at the app root", async () => {
+    await touch("page.tsx");
+    await touch("constants.ts");
+    await touch("types.ts");
+
+    const candidates = await findMigrationCandidates(appDir);
+    expect(candidates.map((c) => c.name)).toEqual(["page.tsx"]);
+  });
+
+  it("still migrates a route folder that has its own colocated non-route files", async () => {
+    await touch("dashboard/page.tsx");
+    await touch("dashboard/components/Chart.tsx");
+    await touch("dashboard/utils.ts");
+
+    const candidates = await findMigrationCandidates(appDir);
+    expect(candidates.map((c) => c.name)).toEqual(["dashboard"]);
+  });
+
+  it("includes a route folder whose only route-segment file is a nested layout.tsx", async () => {
+    await touch("dashboard/layout.tsx");
+    await touch("dashboard/settings/page.tsx");
+
+    const candidates = await findMigrationCandidates(appDir);
+    expect(candidates.map((c) => c.name)).toEqual(["dashboard"]);
+  });
+
   it("flags directories vs files correctly", async () => {
     await touch("page.tsx");
     await touch("about/page.tsx");

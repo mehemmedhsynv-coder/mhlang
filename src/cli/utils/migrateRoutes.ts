@@ -29,6 +29,25 @@ function isNeverMigrated(name: string): boolean {
   return NEVER_MIGRATE.has(name) || ICON_CONVENTION_PATTERN.test(name);
 }
 
+/** Next.js's route-segment file conventions — the only files that make a folder (or the app
+ *  root itself) an actual route rather than just colocated code. */
+const ROUTE_SEGMENT_FILE_PATTERN =
+  /^(page|route|layout|loading|error|not-found|template|default)\.(tsx|ts|jsx|js|mjs|cjs)$/;
+
+/** True if `dir` (or anything nested inside it) contains a route-segment file — i.e. it's an
+ *  actual route (or a route group/parent of one), not just a colocated helper directory like
+ *  `components/`, `lib/`, or `hooks/` that happens to live inside `app/`. */
+async function containsRoute(dir: string): Promise<boolean> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isFile() && ROUTE_SEGMENT_FILE_PATTERN.test(entry.name)) return true;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory() && (await containsRoute(path.join(dir, entry.name)))) return true;
+  }
+  return false;
+}
+
 export interface MigrationCandidate {
   name: string;
   isDirectory: boolean;
@@ -37,15 +56,35 @@ export interface MigrationCandidate {
 /**
  * Lists top-level entries directly inside `appDir` that represent existing routes and should
  * move under `[locale]/` for URL-prefixed i18n to apply site-wide (e.g. `page.tsx`, `about/`,
- * a `(marketing)/` route group) — excluding root-only conventions like the root `layout.tsx`,
- * `api/`, icon/manifest files, and an already-migrated `[locale]/`.
+ * a `(marketing)/` route group). A top-level file only qualifies if it's itself a route-segment
+ * convention (`page.tsx`, `loading.tsx`, etc.) — a stray file like `constants.ts` is left alone.
+ * A top-level directory only qualifies if it (or something nested inside it) actually contains a
+ * route-segment file — a colocated helper directory like `components/`, `lib/`, or `hooks/` with
+ * no `page`/`route` anywhere inside it is left alone, even though it lives under `app/`.
+ * Root-only conventions (`layout.tsx`, `api/`, icon/manifest files, an already-migrated
+ * `[locale]/`) are excluded outright, before that check.
  */
 export async function findMigrationCandidates(appDir: string): Promise<MigrationCandidate[]> {
   if (!existsSync(appDir)) return [];
   const entries = await readdir(appDir, { withFileTypes: true });
-  return entries
-    .filter((entry) => !isNeverMigrated(entry.name))
-    .map((entry) => ({ name: entry.name, isDirectory: entry.isDirectory() }));
+  const candidates: MigrationCandidate[] = [];
+
+  for (const entry of entries) {
+    if (isNeverMigrated(entry.name)) continue;
+
+    if (entry.isDirectory()) {
+      if (await containsRoute(path.join(appDir, entry.name))) {
+        candidates.push({ name: entry.name, isDirectory: true });
+      }
+      continue;
+    }
+
+    if (ROUTE_SEGMENT_FILE_PATTERN.test(entry.name)) {
+      candidates.push({ name: entry.name, isDirectory: false });
+    }
+  }
+
+  return candidates;
 }
 
 /**
